@@ -99,7 +99,8 @@ class TwoLayerNet(object):
         #print(f"W1 shape: {W1.shape}")
         
         #calculate layer 'scores'
-        h1 = ReLU(np.dot(X, W1.T) + b1[np.newaxis,:])
+        q = np.dot(X, W1.T) + b1[np.newaxis,:]
+        h1 = ReLU(q)
         h2 = np.dot(h1,W2.T) + b2[np.newaxis,:]
         
         #package score in requested dimensionality
@@ -176,36 +177,57 @@ class TwoLayerNet(object):
         # ================================================================ #
         
         #input as scores, S as numExamples x numClasses
-        #                 y as numExamples
-        def softmax(S, y): 
-            sm = np.exp(S)/np.sum(np.exp(S))
-            sm[:, y[:, np.newaxis]] = 0
-            return sm
-        
-        
+        def softmax(S): 
+            maxes = np.max(S.T, axis=0)
+            score = S.T - maxes
+            sm = np.exp(score)/np.sum(np.exp(score), axis = 0)
+            return sm.T
+                
         #gradient of softmax_loss with respect to scores
         classes = np.tile(np.arange(scores.shape[1]), (scores.shape[0],1)) 
-        indicator = (y == scores)
-        dL_ds = softmax(scores,y) -indicator*scores
-        print(f"dL_ds: {dL_ds.shape}")
+        indicator = (y[:,np.newaxis] == classes)
+
+        dL_ds = (softmax(scores) - (1*indicator))/scores.shape[0]   # (N x C)
+        #print(f"dL_ds: {dL_ds.shape}")
         
         #gradient of scores with respect to W2
-        ds_dW2 = h1.T
-        print(f"ds_dW2: {ds_dW2.shape}")   
+        ds_dW2 = h1.T                                               # (H x N)
+        #print(f"ds_dW2: {ds_dW2.shape}")   
         
         #gradient of softmax_loss with respect to W2
-        dL_dW2 = np.dot(ds_dW2,dL_ds) + reg*W2.T
-        print(f"dL_dW2: {dL_dW2.shape}")
+        dL_dW2 = np.dot(ds_dW2,dL_ds) + reg*W2.T    # (H x N) (N x C) = (H x C)
+        #print(f"dL_dW2: {dL_dW2.shape}")
         
         #gradient of softmax_loss with respect to b2
-        dL_db2 = np.sum(dL_ds,axis=0)
-        print(f"dL_db2: {dL_db2.shape}")
+        dL_db2 = np.sum(dL_ds,axis=0)              # (C)
+        #print(f"dL_db2: {dL_db2.shape}")
         
-        grads['W2'] = dL_dW2
-        grads['b2'] = dL_db2
-        #gradient
+        grads['W2'] = dL_dW2.T
+        grads['b2'] = dL_db2.T
         
         
+        #gradient of scores with respect to h1
+        ds_dh1 = W2                               #(CxH)
+        #print(f"shape of ds_dh1: {ds_dh1.shape}")
+        
+        #gradient of h1 with respect to ReLU input (denoted as q)
+        dh1_dq = (q > 0)  # d(np.maximum(0,q))/dq is (q>0)     # (NxH)
+        #print(f"shape of dh1_dq: {dh1_dq.shape}")
+        
+        #gradient of q with respect to W1
+        dq_dW1 = X.T
+        
+        
+        #gradient of softmax loss with respect to W1
+        dL_dW1 = np.dot(dq_dW1, (np.dot(dL_ds, ds_dh1)) * dh1_dq) + reg*W1.T
+        
+        grads['W1'] = dL_dW1.T
+        
+        #gradient of q with respect to b1 will just sum along the element
+        
+        dL_db1 = (np.dot(dL_ds, ds_dh1)) * dh1_dq
+        
+        grads['b1'] = np.sum(dL_db1, axis=0)
         
         
         pass
@@ -253,6 +275,9 @@ class TwoLayerNet(object):
             # YOUR CODE HERE:
             # 	Create a minibatch by sampling batch_size samples randomly.
             # ================================================================ #
+            batch_ind = np.random.choice(num_train, batch_size)
+            X_batch = X[batch_ind]
+            y_batch = y[batch_ind]
             pass
 
             # ================================================================ #
@@ -268,7 +293,11 @@ class TwoLayerNet(object):
             # 	Perform a gradient descent step using the minibatch to update
             # 	all parameters (i.e., W1, W2, b1, and b2).
             # ================================================================ #
-
+            self.params['W1'] -= learning_rate*grads['W1']
+            self.params['W2'] -= learning_rate*grads['W2']
+            
+            self.params['b1'] -= learning_rate*grads['b1']
+            self.params['b2'] -= learning_rate*grads['b2']
             pass
 
             # ================================================================ #
@@ -309,13 +338,28 @@ class TwoLayerNet(object):
         - y_pred: A numpy array of shape (N,) giving predicted labels for each of
           the elements of X. For all i, y_pred[i] = c means that X[i] is predicted
           to have class c, where 0 <= c < C.
-        """
+        """        
         y_pred = None
 
         # ================================================================ #
         # YOUR CODE HERE:
         # 	Predict the class given the input data.
         # ================================================================ #
+        ReLU = lambda x: x*(x>0)
+        
+        #input as scores, S as numExamples x numClasses
+        def softmax(S): 
+            maxes = np.max(S.T, axis=0)
+            score = S.T - maxes
+            sm = np.exp(score)/np.sum(np.exp(score), axis = 0)
+            return sm.T
+
+        q = np.dot(X,self.params['W1'].T) 
+        q += self.params['b1'][np.newaxis,:]
+        h1 = ReLU(q)
+        h2 = np.dot(h1, self.params['W2'].T) + self.params['b2'][np.newaxis,:]
+        probabilities = softmax(h2)
+        y_pred = np.argmax(probabilities, axis=1)
         pass
 
 
