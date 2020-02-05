@@ -61,6 +61,7 @@ class TwoLayerNet(object):
         self.params['b1'] = np.zeros(hidden_dims,)
         self.params['W2'] = np.random.normal(0,weight_scale,(hidden_dims,num_classes))
         self.params['b2'] = np.zeros(num_classes)
+        
         pass
 
         # ================================================================ #
@@ -204,9 +205,19 @@ class FullyConnectedNet(object):
         #   biases are initialized to zero and the weights are initialized
         #   so that each parameter has mean 0 and standard deviation weight_scale.
         # ================================================================ #
-        for i in self.num_layers:
-            if i == 0:
-                self.params['W' + num2str(i)] = np.random.normal(0, weight_scale, ())
+        print(f"num of layers: {self.num_layers}, hidden dims: {len(hidden_dims)}")
+        for i in range(self.num_layers-1):
+            print(f"i is: {i}")
+            ind = str(i+1)
+            if i == 0: #if it's the first
+                self.params['W'+ind] = np.random.normal(0, weight_scale, (input_dim,hidden_dims[i]))
+                self.params['b'+ind] = np.zeros((hidden_dims[i],))  
+            elif i == (self.num_layers-2): #if it's the last
+                self.params['W'+ind] = np.random.normal(0, weight_scale, (hidden_dims[i-1],num_classes))
+                self.params['b'+ind] = np.zeros((num_classes,))
+            else: #otherwise
+                self.params['W'+ind] = np.random.normal(0, weight_scale, (hidden_dims[i-1],hidden_dims[i]))
+                self.params['b'+ind] = np.zeros((hidden_dims[i],))
             
         pass
 
@@ -261,7 +272,29 @@ class FullyConnectedNet(object):
         #   Implement the forward pass of the FC net and store the output
         #   scores as the variable "scores".
         # ================================================================ #
-
+        #print(X.shape)
+        #For a network with L layers, the architecture will be
+        #{affine - [batch norm] - relu - [dropout]} x (L - 1) - affine - softmax
+        
+        ReLU = lambda u: u*(u>0)
+        cache_affine = []
+        cache_relu = []
+        input_ = X
+        for i in range(self.num_layers-1):
+            #print(f"using: W{i+1} and b{i+1}")
+            W = self.params['W' + str(i+1)]
+            b = self.params['b' + str(i+1)]
+            #print(f"size of x: {input_.shape}")
+            #print(f"size of W: {W.shape}")
+            #print(f"size of b: {b.shape}")
+            input_, cache_ = affine_forward(input_,W,b)
+            cache_affine.append(cache_)
+            if i != (self.num_layers - 2): #apply relu if we're not at the last level
+                input_, cache_r = relu_forward(input_)
+                cache_relu.append(cache_r)
+                
+        scores = input_
+        
         pass
 
         # ================================================================ #
@@ -279,7 +312,35 @@ class FullyConnectedNet(object):
         #   in the grads dict, so that grads[k] is the gradient of self.params[k]
         #   Be sure your L2 regularization includes a 0.5 factor.
         # ================================================================ #
-
+        
+        last_layer = self.num_layers-2
+        #print(f"Last layer is: {last_layer}")
+        
+        
+        loss, dL_ds = softmax_loss(scores,y)
+        dx = dL_ds
+        for i in reversed(range(self.num_layers-1)):
+            #print(f"i is: {i}")
+            #print(f"using: W{i+1} and b{i+1}")
+            W = self.params['W' + str(i+1)]
+            b = self.params['b' + str(i+1)]                      
+            
+            if i != last_layer:
+                dq = relu_backward(dx, cache_relu.pop())
+            else:
+                dq = dx
+               
+            dx, dw, db = affine_backward(dq, cache_affine.pop())
+            
+            #add regularization loss
+            loss += 0.5*self.reg*np.sum(W*W)
+              
+            #add gradient of loss terms
+            dw += self.reg*W
+        
+            grads.update({'W' + str(i+1): dw})
+            grads.update({'b'+ str(i+1): db})
+        
         pass
 
         # ================================================================ #

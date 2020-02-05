@@ -45,9 +45,12 @@ def affine_forward(x, w, b):
     x_shape = x.shape
     #print(x_shape)
     
-    #construct reshaped x
-    x_new = x.reshape((x_shape[0], D))
-
+    #construct reshaped x if needed
+    xnew = []
+    if len(x_shape) > 2:
+        x_new = x.reshape((x_shape[0], D))
+    else:
+        x_new = x
     #verify final shape
     #print(x_new.shape)
         
