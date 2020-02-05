@@ -204,8 +204,10 @@ class FullyConnectedNet(object):
         #   biases are initialized to zero and the weights are initialized
         #   so that each parameter has mean 0 and standard deviation weight_scale.
         # ================================================================ #
-        #for i in self.num_layers:
-            #self.params['W' + num2str(i)] = np.random.normal(0, weight_scale, size=
+        for i in self.num_layers:
+            if i == 0:
+                self.params['W' + num2str(i)] = np.random.normal(0, weight_scale, ())
+            
         pass
 
         # ================================================================ #
