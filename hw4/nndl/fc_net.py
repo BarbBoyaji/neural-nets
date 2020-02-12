@@ -165,7 +165,7 @@ class FullyConnectedNet(object):
     """
 
     def __init__(self, hidden_dims, input_dim=3*32*32, num_classes=10,
-               dropout=0, use_batchnorm=False, reg=0.0,
+               dropout=1, use_batchnorm=False, reg=0.0,
                weight_scale=1e-2, dtype=np.float32, seed=None):
         """
         Initialize a new FullyConnectedNet.
@@ -211,29 +211,36 @@ class FullyConnectedNet(object):
         
         #print(f"num of layers: {self.num_layers}, hidden dims: {len(hidden_dims)}")       
                 
-        for i in range(self.num_layers-1):
+        for i in range(self.num_layers):
             ind = str(i+1)
-            
             #w is D,M 
             D = 0
             M = 0
             
             if i == 0: #if it's the first
+                #print(f"first: {i}")
                 D = input_dim
                 M = hidden_dims[i]
-            elif i == (self.num_layers-2): #if it's the last
+            elif i == (self.num_layers-1): #if it's the last
+                #print(f"last: {i}")
                 D = hidden_dims[i-1]
                 M = num_classes                
             else: #otherwise
+                #print(f"other: {i}")
                 D = hidden_dims[i-1]
                 M = hidden_dims[i]
-                        
+
+            #print(f"D is {D}, M is {M}")
+
+            #print(f"defining: {'W'+ind}")
             self.params['W'+ind] = np.random.normal(0, weight_scale, (D,M))
             self.params['b'+ind] = np.zeros((M,))
+            
             if self.use_batchnorm:
+                #print(f"defining: {'gamma'+ind}")
                 self.params['gamma'+ind] = np.ones((M,))
                 self.params['beta'+ind] = np.zeros((M,))
-        pass       
+               
 
         # ================================================================ #
         # END YOUR CODE HERE
@@ -298,7 +305,7 @@ class FullyConnectedNet(object):
         cache_relu = []
         cache_batch = []
         input_ = X
-        for i in range(self.num_layers-1):
+        for i in range(self.num_layers):
             #print(f"using: W{i+1} and b{i+1}")
             W = self.params['W' + str(i+1)]
             b = self.params['b' + str(i+1)]
@@ -307,9 +314,9 @@ class FullyConnectedNet(object):
             #print(f"size of b: {b.shape}")
             input_, cache_ = affine_forward(input_,W,b)
             cache_affine.append(cache_)
-            if i != (self.num_layers - 2): #apply relu if we're not at the last level
+            if i != (self.num_layers - 1): #apply relu if we're not at the last level
                 if self.use_batchnorm:
-                    input_, cache_b = batchnorm_forward(input_,self.params['gamma'+str(i+1)], self.params['beta'+str(i+1)],bn_param)
+                    input_, cache_b = batchnorm_forward(input_,self.params['gamma'+str(i+1)], self.params['beta'+str(i+1)],self.bn_params[i])
                     cache_batch.append(cache_b)
                 input_, cache_r = relu_forward(input_)
                 cache_relu.append(cache_r)
@@ -336,22 +343,24 @@ class FullyConnectedNet(object):
         #   DROPOUT: Incorporate the backward pass of dropout.
         # ================================================================ #
         
-        last_layer = self.num_layers-2
+        last_layer = self.num_layers-1
         #print(f"Last layer is: {last_layer}")
         
         dbeta, dgamma = None, None
         loss, dL_ds = softmax_loss(scores,y)
         dx = dL_ds
-        for i in reversed(range(self.num_layers-1)):
+        for i in reversed(range(self.num_layers)):
             #print(f"i is: {i}")
             #print(f"using: W{i+1} and b{i+1}")
             W = self.params['W' + str(i+1)]
             b = self.params['b' + str(i+1)]                      
             
             if i != last_layer:
-                if self.use_batchnorm:
-                    dx, dgamma, dbeta = batchnorm_backward(dx, cache_batch.pop())
                 dq = relu_backward(dx, cache_relu.pop())
+                if self.use_batchnorm:
+                    dq, dgamma, dbeta = batchnorm_backward(dq, cache_batch.pop())
+                    grads.update({'gamma'+ str(i+1): dgamma})
+                    grads.update({'beta'+ str(i+1): dbeta})
             else:
                 dq = dx
                
@@ -365,9 +374,12 @@ class FullyConnectedNet(object):
         
             grads.update({'W' + str(i+1): dw})
             grads.update({'b'+ str(i+1): db})
-        
+            
+                      
+        #get the solver to play nice with the gradients
+        grads.update({'gamma'+ str(self.num_layers): 0})
+        grads.update({'beta'+ str(self.num_layers): 0})
         pass
-
 
         # ================================================================ #
         # END YOUR CODE HERE

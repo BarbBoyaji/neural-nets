@@ -46,7 +46,6 @@ def affine_forward(x, w, b):
     #construct reshaped x if needed
     xnew = []
     if len(x_shape) > 2:
-        print(f"here! {len(x_shape)}")
         x_new = x.reshape((x_shape[0], D))
     else:
         x_new = x
@@ -212,8 +211,10 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     momentum = bn_param.get('momentum', 0.9)
 
     N, D = x.shape
+    #print(f"\t N is {N}, D is: {D}")
     running_mean = bn_param.get('running_mean', np.zeros(D, dtype=x.dtype))
     running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
+    #print(f"\t shape of running_mean: {running_mean.shape}")
 
     out, cache = None, None
     if mode == 'train':
@@ -231,8 +232,10 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         
         #running mean and variance
         sample_mean = np.sum(x, axis=0)/x.shape[0] #average along features
-        sample_var = np.sum((x - sample_mean)**2, axis =0)/x.shape[0]
+        #sample_var = np.sum((x - sample_mean)**2, axis =1)/x.shape[1]
+        sample_var = x.var(axis=0)
 
+        #print(f"\t sample_mean: {sample_mean.shape}, running_mean {running_mean.shape}")
         running_mean = momentum * running_mean + (1 - momentum) * sample_mean
         running_var = momentum * running_var + (1 - momentum) * sample_var
         
@@ -249,7 +252,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         
         #keep track of cache variables
         cache = {'x_hat': x_hat, 'a': a, 'b': b, 'c': c, 'e': e, 'gamma': gamma, 'beta': beta, 'y': out}
-        pass
+        
 
         # ================================================================ #
         # END YOUR CODE HERE
@@ -262,6 +265,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #   Store the output as 'out'.
         # ================================================================ #
         #running mean and variance
+        
+        #CHECK HERE. DO WE ONLY NEED TO USE THE RUNNIGN MEAN HERE?????
         sample_mean = np.sum(x, axis=0)/x.shape[0] #average along features
         sample_var = np.sum((x - sample_mean)**2, axis =0)/x.shape[0]
         
@@ -271,7 +276,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #scale and shift
         out = gamma*x_hat + beta
         
-        pass
+        
         
         # ================================================================ #
         # END YOUR CODE HERE
