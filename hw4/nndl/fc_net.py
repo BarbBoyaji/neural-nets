@@ -56,7 +56,13 @@ class TwoLayerNet(object):
         #   The dimensions of W1 should be (input_dim, hidden_dim) and the
         #   dimensions of W2 should be (hidden_dims, num_classes)
         # ================================================================ #
-
+        
+        self.D = hidden_dims
+        
+        self.params['W1'] = np.random.normal(0,weight_scale,(input_dim,hidden_dims))
+        self.params['b1'] = np.zeros(hidden_dims,)
+        self.params['W2'] = np.random.normal(0,weight_scale,(hidden_dims,num_classes))
+        self.params['b2'] = np.zeros(num_classes)
 
         # ================================================================ #
         # END YOUR CODE HERE
@@ -89,7 +95,13 @@ class TwoLayerNet(object):
         #   the class scores as the variable 'scores'.  Be sure to use the layers
         #   you prior implemented.
         # ================================================================ #    
+        q, cache0 = affine_forward(X,self.params['W1'],self.params['b1'])
+        h1, cache1 = relu_forward(q)
+        h2, cache2 = affine_forward(h1,self.params['W2'],self.params['b2'])
         
+        scores = h2
+        pass
+    
         # ================================================================ #
         # END YOUR CODE HERE
         # ================================================================ #
@@ -113,7 +125,22 @@ class TwoLayerNet(object):
         #
         #   And be sure to use the layers you prior implemented.
         # ================================================================ #    
+        loss, dL_ds = softmax_loss(scores,y)
+        dh2, dw2, db2 = affine_backward(dL_ds, cache2)
         
+        dq = relu_backward(dh2, cache1)
+        
+        dh1, dw1, db1 = affine_backward(dq, cache0)
+              
+        #add regularization loss
+        loss += 0.5*self.reg*np.sum(self.params['W2']*self.params['W2'])
+        loss += 0.5*self.reg*np.sum(self.params['W1']*self.params['W1'])
+              
+        #add gradient of loss terms
+        dw2 += self.reg*self.params['W2']
+        dw1 += self.reg*self.params['W1']
+        
+        grads = {'W1': dw1, 'b1': db1, 'W2': dw2, 'b2': db2}
         # ================================================================ #
         # END YOUR CODE HERE
         # ================================================================ #
@@ -181,19 +208,31 @@ class FullyConnectedNet(object):
         #   should be gamma2 and beta2, etc. Only use batchnorm if self.use_batchnorm 
         #   is true and DO NOT do batch normalize the output scores.
         # ================================================================ #
-        print(f"num of layers: {self.num_layers}, hidden dims: {len(hidden_dims)}")
+        
+        #print(f"num of layers: {self.num_layers}, hidden dims: {len(hidden_dims)}")       
+                
         for i in range(self.num_layers-1):
             ind = str(i+1)
-            if i == 0: #if it's the first
-                self.params['W'+ind] = np.random.normal(0, weight_scale, (input_dim,hidden_dims[i]))
-                self.params['b'+ind] = np.zeros((hidden_dims[i],))  
-            elif i == (self.num_layers-2): #if it's the last
-                self.params['W'+ind] = np.random.normal(0, weight_scale, (hidden_dims[i-1],num_classes))
-                self.params['b'+ind] = np.zeros((num_classes,))
-            else: #otherwise
-                self.params['W'+ind] = np.random.normal(0, weight_scale, (hidden_dims[i-1],hidden_dims[i]))
-                self.params['b'+ind] = np.zeros((hidden_dims[i],))
             
+            #w is D,M 
+            D = 0
+            M = 0
+            
+            if i == 0: #if it's the first
+                D = input_dim
+                M = hidden_dims[i]
+            elif i == (self.num_layers-2): #if it's the last
+                D = hidden_dims[i-1]
+                M = num_classes                
+            else: #otherwise
+                D = hidden_dims[i-1]
+                M = hidden_dims[i]
+                        
+            self.params['W'+ind] = np.random.normal(0, weight_scale, (D,M))
+            self.params['b'+ind] = np.zeros((M,))
+            if self.use_batchnorm:
+                self.params['gamma'+ind] = np.ones((M,))
+                self.params['beta'+ind] = np.zeros((M,))
         pass       
 
         # ================================================================ #
@@ -257,6 +296,7 @@ class FullyConnectedNet(object):
         ReLU = lambda u: u*(u>0)
         cache_affine = []
         cache_relu = []
+        cache_batch = []
         input_ = X
         for i in range(self.num_layers-1):
             #print(f"using: W{i+1} and b{i+1}")
@@ -268,6 +308,9 @@ class FullyConnectedNet(object):
             input_, cache_ = affine_forward(input_,W,b)
             cache_affine.append(cache_)
             if i != (self.num_layers - 2): #apply relu if we're not at the last level
+                if self.use_batchnorm:
+                    input_, cache_b = batchnorm_forward(input_,self.params['gamma'+str(i+1)], self.params['beta'+str(i+1)],bn_param)
+                    cache_batch.append(cache_b)
                 input_, cache_r = relu_forward(input_)
                 cache_relu.append(cache_r)
                 
@@ -296,7 +339,7 @@ class FullyConnectedNet(object):
         last_layer = self.num_layers-2
         #print(f"Last layer is: {last_layer}")
         
-        
+        dbeta, dgamma = None, None
         loss, dL_ds = softmax_loss(scores,y)
         dx = dL_ds
         for i in reversed(range(self.num_layers-1)):
@@ -306,6 +349,8 @@ class FullyConnectedNet(object):
             b = self.params['b' + str(i+1)]                      
             
             if i != last_layer:
+                if self.use_batchnorm:
+                    dx, dgamma, dbeta = batchnorm_backward(dx, cache_batch.pop())
                 dq = relu_backward(dx, cache_relu.pop())
             else:
                 dq = dx

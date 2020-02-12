@@ -46,6 +46,7 @@ def affine_forward(x, w, b):
     #construct reshaped x if needed
     xnew = []
     if len(x_shape) > 2:
+        print(f"here! {len(x_shape)}")
         x_new = x.reshape((x_shape[0], D))
     else:
         x_new = x
@@ -221,13 +222,33 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # YOUR CODE HERE:
         #   A few steps here:
         #     (1) Calculate the running mean and variance of the minibatch.
-        #     (2) Normalize the activations with the running mean and variance.
+        #     (2) Normalize the activations with the sample mean and variance.
         #     (3) Scale and shift the normalized activations.  Store this
         #         as the variable 'out'
         #     (4) Store any variables you may need for the backward pass in
         #         the 'cache' variable.
         # ================================================================ #
+        
+        #running mean and variance
+        sample_mean = np.sum(x, axis=0)/x.shape[0] #average along features
+        sample_var = np.sum((x - sample_mean)**2, axis =0)/x.shape[0]
 
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var
+        
+        
+        #normalize activations
+        a = x - sample_mean 
+        e = sample_var + eps 
+        c = np.sqrt(e)
+        b = 1/c
+        x_hat = a*b 
+        
+        #scale and shift
+        out = gamma*x_hat + beta
+        
+        #keep track of cache variables
+        cache = {'x_hat': x_hat, 'a': a, 'b': b, 'c': c, 'e': e, 'gamma': gamma, 'beta': beta, 'y': out}
         pass
 
         # ================================================================ #
@@ -237,9 +258,18 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # ================================================================ #
         # YOUR CODE HERE:
         #   Calculate the testing time normalized activation.  Normalize using
-        #   the running mean and variance, and then scale and shift appropriately.
+        #   the sample mean and variance, and then scale and shift appropriately.
         #   Store the output as 'out'.
         # ================================================================ #
+        #running mean and variance
+        sample_mean = np.sum(x, axis=0)/x.shape[0] #average along features
+        sample_var = np.sum((x - sample_mean)**2, axis =0)/x.shape[0]
+        
+        #normalize activations
+        x_hat = (x - sample_mean)/np.sqrt(sample_var + eps)
+        
+        #scale and shift
+        out = gamma*x_hat + beta
         
         pass
         
@@ -278,7 +308,16 @@ def batchnorm_backward(dout, cache):
     # YOUR CODE HERE:
     #   Implement the batchnorm backward pass, calculating dx, dgamma, and dbeta.
     # ================================================================ #
-
+    dbeta = np.sum(dout,axis=0)
+    xhat = cache['x_hat']
+    dgamma = np.sum(xhat*dout, axis=0)
+    
+    dxhat = dout*cache['gamma']
+    da = cache['b']*dxhat
+    dsigma2 = -0.5*np.sum(cache['a']*dxhat/cache['e']**(3/2),axis=0)
+    dmu = -cache['b']*np.sum(dxhat,axis=0) - (dsigma2*2/dout.shape[0])*np.sum(cache['a'],axis=0)
+    
+    dx = da + 2*cache['a']*dsigma2/dout.shape[0]+dmu/dout.shape[0]
     # ================================================================ #
     # END YOUR CODE HERE
     # ================================================================ #
