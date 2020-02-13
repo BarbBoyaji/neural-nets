@@ -237,7 +237,6 @@ class FullyConnectedNet(object):
             self.params['b'+ind] = np.zeros((M,))
             
             if self.use_batchnorm:
-                #print(f"defining: {'gamma'+ind}")
                 self.params['gamma'+ind] = np.ones((M,))
                 self.params['beta'+ind] = np.zeros((M,))
                
@@ -304,6 +303,7 @@ class FullyConnectedNet(object):
         cache_affine = []
         cache_relu = []
         cache_batch = []
+        cache_drop = []
         input_ = X
         for i in range(self.num_layers):
             #print(f"using: W{i+1} and b{i+1}")
@@ -318,8 +318,14 @@ class FullyConnectedNet(object):
                 if self.use_batchnorm:
                     input_, cache_b = batchnorm_forward(input_,self.params['gamma'+str(i+1)], self.params['beta'+str(i+1)],self.bn_params[i])
                     cache_batch.append(cache_b)
+                      
                 input_, cache_r = relu_forward(input_)
                 cache_relu.append(cache_r)
+                      
+                if self.use_dropout:
+                    input_, cache_d = dropout_forward(input_, self.dropout_param)
+                    cache_drop.append(cache_d)
+                
                 
         scores = input_
 
@@ -356,7 +362,13 @@ class FullyConnectedNet(object):
             b = self.params['b' + str(i+1)]                      
             
             if i != last_layer:
+                
+                if self.use_dropout:
+                    dx = dropout_backward(dx, cache_drop.pop())
+                    #grads.update({'dropout'+ str(i+1): dx})
+                    
                 dq = relu_backward(dx, cache_relu.pop())
+                
                 if self.use_batchnorm:
                     dq, dgamma, dbeta = batchnorm_backward(dq, cache_batch.pop())
                     grads.update({'gamma'+ str(i+1): dgamma})
@@ -377,8 +389,9 @@ class FullyConnectedNet(object):
             
                       
         #get the solver to play nice with the gradients
-        grads.update({'gamma'+ str(self.num_layers): 0})
-        grads.update({'beta'+ str(self.num_layers): 0})
+        if self.use_batchnorm:
+            grads.update({'gamma'+ str(self.num_layers): 0})
+            grads.update({'beta'+ str(self.num_layers): 0})
         pass
 
         # ================================================================ #
