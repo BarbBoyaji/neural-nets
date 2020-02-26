@@ -228,14 +228,14 @@ def max_pool_backward_naive(dout, cache):
     return dx
 
 def spatial_batchnorm_forward(x, gamma, beta, bn_param):
-  """
-  Computes the forward pass for spatial batch normalization.
-  
-  Inputs:
-  - x: Input data of shape (N, C, H, W)
-  - gamma: Scale parameter, of shape (C,)
-  - beta: Shift parameter, of shape (C,)
-  - bn_param: Dictionary with the following keys:
+    """
+    Computes the forward pass for spatial batch normalization.
+
+    Inputs:
+    - x: Input data of shape (N, C, H, W)
+    - gamma: Scale parameter, of shape (C,)
+    - beta: Shift parameter, of shape (C,)
+    - bn_param: Dictionary with the following keys:
     - mode: 'train' or 'test'; required
     - eps: Constant for numeric stability
     - momentum: Constant for running mean / variance. momentum=0 means that
@@ -244,56 +244,81 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
       default of momentum=0.9 should work well in most situations.
     - running_mean: Array of shape (D,) giving running mean of features
     - running_var Array of shape (D,) giving running variance of features
+
+    Returns a tuple of:
+    - out: Output data, of shape (N, C, H, W)
+    - cache: Values needed for the backward pass
+    """
+    out, cache = None, None
+
+    # ================================================================ #
+    # YOUR CODE HERE:
+    #   Implement the spatial batchnorm forward pass.
+    #
+    #   You may find it useful to use the batchnorm forward pass you 
+    #   implemented in HW #4.
+    # ================================================================ #
     
-  Returns a tuple of:
-  - out: Output data, of shape (N, C, H, W)
-  - cache: Values needed for the backward pass
-  """
-  out, cache = None, None
+    N,C,H,W = x.shape
+    
+    #initialize the data
+    data = np.zeros_like( (C, N, H, W))
+    data = x.swapaxes(0,1)
+    data = data.reshape(C, N*H*W)
+    
+    #feed data into batchnorm forward
+    out, cache = batchnorm_forward(data.T, gamma, beta, bn_param)
+    
+    #reshape (undo what we did)
+    out = out.T.reshape(C, N, H, W)
+    out = out.swapaxes(0,1)
 
-  # ================================================================ #
-  # YOUR CODE HERE:
-  #   Implement the spatial batchnorm forward pass.
-  #
-  #   You may find it useful to use the batchnorm forward pass you 
-  #   implemented in HW #4.
-  # ================================================================ #
-  
-  
 
-  # ================================================================ #
-  # END YOUR CODE HERE
-  # ================================================================ # 
+    # ================================================================ #
+    # END YOUR CODE HERE
+    # ================================================================ # 
 
-  return out, cache
+    return out, cache
 
 
 def spatial_batchnorm_backward(dout, cache):
-  """
-  Computes the backward pass for spatial batch normalization.
-  
-  Inputs:
-  - dout: Upstream derivatives, of shape (N, C, H, W)
-  - cache: Values from the forward pass
-  
-  Returns a tuple of:
-  - dx: Gradient with respect to inputs, of shape (N, C, H, W)
-  - dgamma: Gradient with respect to scale parameter, of shape (C,)
-  - dbeta: Gradient with respect to shift parameter, of shape (C,)
-  """
-  dx, dgamma, dbeta = None, None, None
+    """
+    Computes the backward pass for spatial batch normalization.
 
-  # ================================================================ #
-  # YOUR CODE HERE:
-  #   Implement the spatial batchnorm backward pass.
-  #
-  #   You may find it useful to use the batchnorm forward pass you 
-  #   implemented in HW #4.
-  # ================================================================ #
-  
+    Inputs:
+    - dout: Upstream derivatives, of shape (N, C, H, W)
+    - cache: Values from the forward pass
 
-  # ================================================================ #
-  # END YOUR CODE HERE
-  # ================================================================ # 
+    Returns a tuple of:
+    - dx: Gradient with respect to inputs, of shape (N, C, H, W)
+    - dgamma: Gradient with respect to scale parameter, of shape (C,)
+    - dbeta: Gradient with respect to shift parameter, of shape (C,)
+    """
+    dx, dgamma, dbeta = None, None, None
 
-  return dx, dgamma, dbeta
+    # ================================================================ #
+    # YOUR CODE HERE:
+    #   Implement the spatial batchnorm backward pass.
+    #
+    #   You may find it useful to use the batchnorm forward pass you 
+    #   implemented in HW #4.
+    # ================================================================ #
+    
+    N,C,H,W = dout.shape
+    
+    #initialize the data
+    deriv = np.zeros_like( (C, N, H, W))
+    deriv = dout.swapaxes(0,1)
+    deriv = deriv.reshape(C, N*H*W)
+    
+    #feed data into batchnorm backward
+    dx, dgamma, dbeta = batchnorm_backward(deriv.T, cache)
+
+    #reshape the dx value
+    dx = dx.T.reshape(C, N, H, W).swapaxes(0,1)
+    
+    # ================================================================ #
+    # END YOUR CODE HERE
+    # ================================================================ # 
+
+    return dx, dgamma, dbeta
