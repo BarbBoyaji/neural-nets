@@ -137,3 +137,33 @@ dmypy.json
 #windows stuff
 .DS_Store
 
+#add the cifar ignore
+
+cifar-10-batches-py/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
